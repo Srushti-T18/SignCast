@@ -1,0 +1,12 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Raw dataset
+dataset/
+
+# Generated numpy arrays
+X.npy
+y.npy
+labels.npy
+*.npy
