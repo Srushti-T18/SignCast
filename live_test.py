@@ -1,64 +1,81 @@
+#BEST VERSION ALL CORRECT NO HELLO GLITCH
 import cv2
 import mediapipe as mp
 import numpy as np
 from tensorflow.keras.models import load_model
 import pyttsx3
+import threading
 
-# Load trained model and labels
+def speak(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
 model = load_model("sign_model.h5")
 labels = np.load("labels.npy")
 
-# Text-to-speech
-engine = pyttsx3.init()
-
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(max_num_hands=1)
+# Increased detection confidence to 0.8
+hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.8, min_tracking_confidence=0.8)
 mp_draw = mp.solutions.drawing_utils
 
 cap = cv2.VideoCapture(0)
 sequence = []
-
-last_spoken = ""   #NEW: to prevent repeating same word
-
-print("Show HELLO / HOW / YOU")
+last_spoken = "" 
+consistency_counter = 0 
+REQUIRED_CONSISTENCY = 5 #Increased to 15 frames (0.15 seconds of steady signing)
 
 while True:
     ret, frame = cap.read()
-    if not ret:
-        break
+    if not ret: break
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     result = hands.process(frame_rgb)
-
-    landmarks = np.zeros(63)
 
     if result.multi_hand_landmarks:
         hand = result.multi_hand_landmarks[0]
         mp_draw.draw_landmarks(frame, hand, mp_hands.HAND_CONNECTIONS)
         landmarks = np.array([[lm.x, lm.y, lm.z] for lm in hand.landmark]).flatten()
-
-    sequence.append(landmarks)
+        
+        sequence.append(landmarks)
+        sequence = sequence[-30:] # Keep window at 30
+    else:
+        # IMPORTANT: If no hand is seen, clear the sequence 
+        # This prevents the model from predicting based on old "ghost" frames
+        sequence = []
+        consistency_counter = 0
 
     if len(sequence) == 30:
         input_data = np.array(sequence).reshape(1, 30, 63)
         prediction = model.predict(input_data, verbose=0)[0]
-
+        
         predicted_word = labels[np.argmax(prediction)]
         confidence = np.max(prediction)
 
-        # SPEAK ONLY IF WORD CHANGES
-        if confidence > 0.8 and predicted_word != last_spoken:
-            print(f"Predicted: {predicted_word} ({confidence:.2f})")
-            engine.say(predicted_word)
-            engine.runAndWait()
-            last_spoken = predicted_word
+        # STRICTER: Only look at predictions with very high confidence
+        if confidence > 0.95: 
+            if predicted_word != "REST" and predicted_word != last_spoken:
+                consistency_counter += 1
+                
+                if consistency_counter >= REQUIRED_CONSISTENCY:
+                    threading.Thread(target=speak, args=(predicted_word,)).start()
+                    last_spoken = predicted_word
+                    consistency_counter = 0
+            
+            elif predicted_word == "REST":
+                last_spoken = "" # Reset memory
+                consistency_counter = 0
+        else:
+            # If confidence is low, don't count it towards consistency
+            consistency_counter = 0
 
-        sequence = []
+    cv2.putText(frame, f"Last Spoken: {last_spoken}", (10, 50), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    cv2.imshow("SignCast", frame)
 
-    cv2.imshow("SignCast - Live Sign to Speech", frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    if cv2.waitKey(1) & 0xFF == ord('q'): break
 
 cap.release()
 cv2.destroyAllWindows()
+
+
