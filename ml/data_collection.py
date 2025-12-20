@@ -6,7 +6,7 @@ import os
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1)
 
-WORDS = ["HELLO", "HOW", "YOU", "REST"]
+WORDS = ["HELLO", "HOW", "NAME","REST", "THANKYOU","WHAT", "YOU"]
 SEQUENCES = 30
 FRAMES = 30
 
