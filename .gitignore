@@ -5,8 +5,6 @@ __pycache__/
 # Raw dataset
 dataset/
 
-# Generated numpy arrays
-X.npy
-y.npy
-labels.npy
-*.npy
+# Environment files
+.env/
+venv/

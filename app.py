@@ -1,15 +1,21 @@
+from flask import Flask, render_template, request, url_for, redirect, Response
+import subprocess
+import sys
 import os
-# Suppress all TF logs and oneDNN messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
 import cv2
 import mediapipe as mp
 import numpy as np
 import threading
 import pyttsx3
 import time
+import queue
 from tensorflow.keras.models import load_model
+
+# Suppress all TF logs and oneDNN messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+app = Flask(__name__)
 
 # --- CONFIGURATION ---
 MODEL_PATH = "sign_model.h5"
@@ -28,6 +34,18 @@ state = {
 
 model = load_model(MODEL_PATH)
 labels = np.load(LABELS_PATH)
+
+output_queue = queue.Queue()
+
+# Local bridge dictionary (Expand this as needed for your specific dataset)
+LOCAL_BRIDGES = {
+    ("how", "you"): "ARE",
+    ("i", "hungry"): "AM",
+    ("you", "hungry"): "ARE",
+    ("i", "fine"): "AM",
+    ("go", "school"): "TO",
+    ("what", "name"): "is your"
+}
 
 def speak_now(text):
     """Blocking speech with optimized human-like settings"""
@@ -48,19 +66,8 @@ def speak_now(text):
 
     # 4. FORMAT TEXT FOR NATURAL INTONATION
     clean_text = text.strip().capitalize() + "."
-    
     engine.say(clean_text)
     engine.runAndWait()
-
-# Local bridge dictionary (Expand this as needed for your specific dataset)
-LOCAL_BRIDGES = {
-    ("how", "you"): "ARE",
-    ("i", "hungry"): "AM",
-    ("you", "hungry"): "ARE",
-    ("i", "fine"): "AM",
-    ("go", "school"): "TO",
-    ("what", "name"): "is your"
-}
 
 def get_bridge_words(history, new_word):
     """
@@ -71,11 +78,11 @@ def get_bridge_words(history, new_word):
     
     # Clean the input strings
     left_context = str(history[-1]).strip().lower()
-    right_word = str(new_word).strip().lower()
+    right_context = str(new_word).strip().lower()
     
     # Try local dictionary (Instant/Offline)
-    if (left_context, right_word) in LOCAL_BRIDGES:
-        return LOCAL_BRIDGES[(left_context, right_word)]
+    if (left_context, right_context) in LOCAL_BRIDGES:
+        return LOCAL_BRIDGES[(left_context, right_context)]
     
     return "" # No bridge word found locally
 
@@ -107,13 +114,13 @@ def ai_worker():
                         
                         # 2. Localized Speech Flow
                         if bridge:
-                            print(f"Local Bridge: {bridge}")
-                            speak_now(bridge + ",") 
+                            output_queue.put(f"Local Bridge: {bridge}")
+                            # speak_now(bridge + ",")  # Removed local speech
                             state["sentence_history"].append(bridge)
                             time.sleep(0.1) 
                         
-                        print(f"Sign Detected: {predicted_word}")
-                        speak_now(predicted_word.capitalize() + ".")
+                        output_queue.put(f"Sign Detected: {predicted_word}")
+                        # speak_now(predicted_word.capitalize() + ".")  # Removed local speech
                         state["sentence_history"].append(predicted_word)
 
                         # 3. Cooldown logic
@@ -124,22 +131,20 @@ def ai_worker():
                 consistency_counter = 0
         time.sleep(0.01)
 
-# Start logic thread
+# Start AI thread
 threading.Thread(target=ai_worker, daemon=True).start()
 
-# --- MAIN UI LOOP ---
-def main():
+def gen():
     cap = cv2.VideoCapture(0)
-    # Replaced mp.solutions.hands with a more direct initialization 
-    # compatible with standard MediaPipe versions.
+    print("Camera opened:", cap.isOpened())
     mp_hands = mp.solutions.hands
     hands = mp_hands.Hands(model_complexity=0)
     sequence_data = []
 
-    print("--- SignCast Local Active ---")
-    while cap.isOpened():
+    while state["running"]:
         ret, frame = cap.read()
-        if not ret: break
+        if not ret:
+            break
         
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         result = hands.process(frame_rgb)
@@ -155,16 +160,62 @@ def main():
             sequence_data.clear()
             state["latest_sequence"] = None
 
-        # Display current sentence
-        display_text = " ".join(state["sentence_history"])
-        cv2.rectangle(frame, (0, 420), (640, 480), (0, 0, 0), -1)
-        cv2.putText(frame, display_text, (20, 460), 1, 1.5, (255, 255, 255), 2)
-        
-        cv2.imshow("SignCast Local", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        ret, jpeg = cv2.imencode('.jpg', frame)
+        if ret:
+            frame_bytes = jpeg.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n\r\n')
 
     cap.release()
-    cv2.destroyAllWindows()
+
+def generate_output():
+    while state["running"]:
+        try:
+            line = output_queue.get(timeout=1)
+            if line.startswith("Sign Detected: "):
+                word = line.split(": ")[1].strip().lower()
+                yield f"data: {word}\n\n"
+            elif line.startswith("Local Bridge: "):
+                bridge = line.split(": ")[1].strip().lower()
+                yield f"data: {bridge}\n\n"
+        except queue.Empty:
+            continue
+
+@app.route("/", methods=['GET'])
+def index():
+    return redirect(url_for('home'))
+
+@app.route("/home", methods=['GET', 'POST'])
+def home():
+    if request.method == 'GET':
+        return render_template("home.html")
+    return redirect(url_for('translate'))
+
+@app.route("/translate", methods=['GET'])
+def translate():
+    # This now just loads the page; the script is triggered by JS
+    return render_template("translate.html", caption="")
+
+@app.route("/contribute", methods=['GET', 'POST'])
+def contribute():
+    if request.method == 'POST':
+        # Handle contribution submission here
+        pass
+    return render_template("contribute.html")
+
+@app.route("/stream")
+def stream():
+    # This is the "live link" between Flask and your script
+    return Response(generate_output(), mimetype='text/event-stream')
+
+@app.route("/stop")
+def stop():
+    state["running"] = False
+    return redirect(url_for('home'))
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)

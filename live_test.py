@@ -11,14 +11,14 @@ import pyttsx3
 import time
 from tensorflow.keras.models import load_model
 
-#config
+# --- CONFIGURATION ---
 MODEL_PATH = "sign_model.h5"
 LABELS_PATH = "labels.npy"
 WINDOW_SIZE = 30
 MIN_CONFIDENCE = 0.95
 REQUIRED_CONSISTENCY = 5
 
-#shared state
+# --- SHARED STATE ---
 state = {
     "latest_sequence": None,
     "last_sign": "",
@@ -55,10 +55,10 @@ def speak_now(text):
 # Local bridge dictionary (Expand this as needed for your specific dataset)
 LOCAL_BRIDGES = {
     ("how", "you"): "ARE",
-    # ("i", "hungry"): "AM",
-    # ("you", "hungry"): "ARE",
-    # ("i", "fine"): "AM",
-    # ("go", "school"): "TO",
+    ("i", "hungry"): "AM",
+    ("you", "hungry"): "ARE",
+    ("i", "fine"): "AM",
+    ("go", "school"): "TO",
     ("what", "name"): "is your"
 }
 
@@ -160,8 +160,9 @@ def main():
         cv2.rectangle(frame, (0, 420), (640, 480), (0, 0, 0), -1)
         cv2.putText(frame, display_text, (20, 460), 1, 1.5, (255, 255, 255), 2)
         
-        cv2.imshow("SignCast Local", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
+        # Removed cv2.imshow and waitKey to prevent window opening
+        # cv2.imshow("SignCast Local", frame)
+        # if cv2.waitKey(1) & 0xFF == ord('q'): break
 
     cap.release()
     cv2.destroyAllWindows()
