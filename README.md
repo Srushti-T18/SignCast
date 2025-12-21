@@ -27,6 +27,18 @@ SignCast uses a sophisticated pipeline to ensure that both the **shape** and the
 * **Data Split:** 60% Training | 25% Validation | 15% Testing.
 * **Accuracy:** Achieved a final validation accuracy of **85.74%**.
 
+##  Tech Stack
+1. TypeScript & JavaScript – Frontend logic and real-time interactions
+2. HTML5 & CSS3 – Responsive user interface and layout
+3. MediaPipe Hands – Real-time hand landmark detection
+4. OpenCV – Webcam capture and frame processing
+5. TensorFlow / Keras – Sequence-based sign language classification model
+6. NumPy – Landmark preprocessing and tensor handling
+7. Scikit-learn – Label encoding and dataset utilities
+8. pyttsx3 – Offline text-to-speech conversion
+9. Python – Core ML pipeline and inference logic
+10. Git & GitHub – Version control and collaboration
+
 ##  Installation & Setup
 
 **Prerequisites:** Python 3.10
