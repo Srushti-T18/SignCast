@@ -6,11 +6,11 @@
 
 SignCast is a real-time accessibility tool designed to bridge the communication gap for the speech-impaired. By leveraging computer vision and deep learning, SignCast translates American Sign Language (ASL) gestures into spoken language instantaneously.
 
-## 🚀 The Mission
+##  The Mission
 
 For millions of individuals who rely on ASL, communicating with non-signers in real-time remains a significant challenge. SignCast provides a **software-based bridge**, converting complex hand movements into synthesized speech, empowering users to express themselves naturally in any environment.
 
-## 🧠 Technical Architecture
+##  Technical Architecture
 
 SignCast uses a sophisticated pipeline to ensure that both the **shape** and the **motion** of signs are captured accurately.
 
@@ -21,13 +21,13 @@ SignCast uses a sophisticated pipeline to ensure that both the **shape** and the
 5. **Classification:** A Softmax layer chooses the correct gloss from a vocabulary of **2,700 signs**.
 6. **Output:** The predicted text is converted to audio via a **Text-to-Speech (TTS)** engine.
 
-## 📊 Dataset & Performance
+##  Dataset & Performance
 
 * **Dataset:** [ASL Citizen](https://www.google.com/search?q=https://aslcitizen.microsoft.com/) (2,700+ distinct signs).
 * **Data Split:** 60% Training | 25% Validation | 15% Testing.
 * **Accuracy:** Achieved a final validation accuracy of **85.74%**.
 
-## 🛠️ Installation & Setup
+##  Installation & Setup
 
 **Prerequisites:** Python 3.10
 
@@ -44,7 +44,7 @@ pip install tensorflow mediapipe opencv-python pandas numpy
 
 ```
 
-## 📂 Project Structure
+##  Project Structure
 
 ```text
 ├── /models
@@ -56,7 +56,7 @@ pip install tensorflow mediapipe opencv-python pandas numpy
 
 ```
 
-## 🔮 Future Roadmap
+##  Future Roadmap
 
 Team Anyhow is committed to expanding SignCast into a full-scale accessibility suite:
 
